@@ -47,7 +47,10 @@ app.config["SECRET_KEY"] = os.getenv(
 )
 
 app.config["SESSION_COOKIE_HTTPONLY"] = True
-app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SESSION_COOKIE_SAMESITE"] = os.getenv(
+    "SESSION_COOKIE_SAMESITE",
+    "Lax"
+).strip() or "Lax"
 
 # Keep False while running locally with http://127.0.0.1
 # Set SESSION_COOKIE_SECURE=true after deploying with HTTPS.
@@ -289,6 +292,24 @@ def generate_verification_code():
     return (
         f"{secrets.randbelow(1_000_000):06d}"
     )
+
+
+def resolve_pending_email(data, session_key):
+    """
+    Prefer request body email, fall back to session.
+
+    Production frontend is on Vercel while the API is
+    proxied to Render, so session cookies are unreliable.
+    """
+
+    email = normalize_email(
+        data.get("email", "")
+    )
+
+    if email:
+        return email
+
+    return session.get(session_key)
 
 
 def send_verification_email(
@@ -1084,9 +1105,15 @@ def api_verify():
         data.get("code", "")
     ).strip()
 
-    email = session.get(
+    email = resolve_pending_email(
+        data,
         "pending_verification_email"
     )
+
+    if email:
+        session[
+            "pending_verification_email"
+        ] = email
 
     if not email:
         return jsonify({
@@ -1225,9 +1252,19 @@ def api_resend_code():
     Generate and send a new verification code.
     """
 
-    email = session.get(
+    data = request.get_json(
+        silent=True
+    ) or {}
+
+    email = resolve_pending_email(
+        data,
         "pending_verification_email"
     )
+
+    if email:
+        session[
+            "pending_verification_email"
+        ] = email
 
     if not email:
         return jsonify({
@@ -1466,7 +1503,8 @@ def api_forgot_password():
         "message": (
             "A password reset code was sent "
             "to your email."
-        )
+        ),
+        "email": email
     }), 200
 
 @app.route(
@@ -1490,9 +1528,15 @@ def api_reset_password():
         data.get("password", "")
     )
 
-    email = session.get(
+    email = resolve_pending_email(
+        data,
         "pending_password_reset_email"
     )
+
+    if email:
+        session[
+            "pending_password_reset_email"
+        ] = email
 
     if not email:
         return jsonify({
@@ -1709,7 +1753,8 @@ def api_login():
                 "Please verify your email "
                 "before logging in."
             ),
-            "requiresVerification": True
+            "requiresVerification": True,
+            "email": email
         }), 403
 
     password_is_correct = (

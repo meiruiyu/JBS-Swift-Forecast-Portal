@@ -2,12 +2,55 @@
 // Shared authentication helper
 // =========================================================
 
+const PENDING_VERIFICATION_EMAIL_KEY =
+    "pendingVerificationEmail";
+const PENDING_PASSWORD_RESET_EMAIL_KEY =
+    "pendingPasswordResetEmail";
+
 const _nativeFetch = window.fetch.bind(window);
 window.fetch = (input, init = {}) =>
     _nativeFetch(input, {
         ...init,
         credentials: init.credentials || "include"
     });
+
+function storePendingEmail(storageKey, email) {
+    if (!email) {
+        return;
+    }
+
+    try {
+        window.sessionStorage.setItem(
+            storageKey,
+            email
+        );
+    } catch (error) {
+        console.warn(error);
+    }
+}
+
+function readPendingEmail(storageKey) {
+    try {
+        return (
+            window.sessionStorage.getItem(
+                storageKey
+            ) || ""
+        );
+    } catch (error) {
+        console.warn(error);
+        return "";
+    }
+}
+
+function clearPendingEmail(storageKey) {
+    try {
+        window.sessionStorage.removeItem(
+            storageKey
+        );
+    } catch (error) {
+        console.warn(error);
+    }
+}
 
 async function readJsonResponse(response) {
     let data = {};
@@ -222,16 +265,34 @@ if (registerForm) {
                     }
                 );
 
-                await readJsonResponse(response);
+                const data =
+                    await readJsonResponse(response);
+
+                storePendingEmail(
+                    PENDING_VERIFICATION_EMAIL_KEY,
+                    data.email || email
+                );
 
                 window.location.href = "/verify";
 
             } catch (error) {
                 console.error(error);
 
+                if (error.data?.email) {
+                    storePendingEmail(
+                        PENDING_VERIFICATION_EMAIL_KEY,
+                        error.data.email
+                    );
+                }
+
                 emailError.textContent =
                     error.message ||
                     "Unable to create the account.";
+
+                if (error.data?.requiresVerification) {
+                    window.location.href = "/verify";
+                    return;
+                }
 
             } finally {
                 submitButton.disabled = false;
@@ -299,6 +360,10 @@ if (verifyForm) {
                 "Verifying...";
 
             try {
+                const pendingEmail = readPendingEmail(
+                    PENDING_VERIFICATION_EMAIL_KEY
+                );
+
                 const response = await fetch(
                     "/api/verify",
                     {
@@ -310,12 +375,17 @@ if (verifyForm) {
                         },
 
                         body: JSON.stringify({
-                            code: verificationCode
+                            code: verificationCode,
+                            email: pendingEmail
                         })
                     }
                 );
 
                 await readJsonResponse(response);
+
+                clearPendingEmail(
+                    PENDING_VERIFICATION_EMAIL_KEY
+                );
 
                 window.location.href = "/login";
 
@@ -363,10 +433,23 @@ if (resendCodeButton) {
                 "Sending...";
 
             try {
+                const pendingEmail = readPendingEmail(
+                    PENDING_VERIFICATION_EMAIL_KEY
+                );
+
                 const response = await fetch(
                     "/api/resend-code",
                     {
-                        method: "POST"
+                        method: "POST",
+
+                        headers: {
+                            "Content-Type":
+                                "application/json"
+                        },
+
+                        body: JSON.stringify({
+                            email: pendingEmail
+                        })
                     }
                 );
 
@@ -496,6 +579,11 @@ if (loginForm) {
                     if (
                         data.requiresVerification
                     ) {
+                        storePendingEmail(
+                            PENDING_VERIFICATION_EMAIL_KEY,
+                            data.email || email
+                        );
+
                         window.location.href =
                             "/verify";
 
@@ -1654,7 +1742,13 @@ if (forgotPasswordForm) {
                     }
                 );
 
-                await readJsonResponse(response);
+                const data =
+                    await readJsonResponse(response);
+
+                storePendingEmail(
+                    PENDING_PASSWORD_RESET_EMAIL_KEY,
+                    data.email || email
+                );
 
                 window.location.href =
                     "/reset-password";
@@ -1804,13 +1898,20 @@ if (resetPasswordForm) {
 
                         body: JSON.stringify({
                             code: resetCode,
-                            password: newPassword
+                            password: newPassword,
+                            email: readPendingEmail(
+                                PENDING_PASSWORD_RESET_EMAIL_KEY
+                            )
                         })
                     }
                 );
 
                 const data =
                     await readJsonResponse(response);
+
+                clearPendingEmail(
+                    PENDING_PASSWORD_RESET_EMAIL_KEY
+                );
 
                 alert(
                     data.message ||
