@@ -64,9 +64,10 @@ Free Render instances sleep when idle and SQLite is ephemeral unless you attach 
 ### 2. Frontend on Vercel
 
 1. Import the same GitHub repo in Vercel.
-2. Set **Root Directory** to `frontend`.
-3. Update `frontend/vercel.json` so the `/api` rewrite destination matches your Render URL.
+2. Keep the project Root Directory as the repository root (uses root `vercel.json`, which publishes `frontend/`).
+3. Or set **Root Directory** to `frontend` and use `frontend/vercel.json`.
 4. Deploy and open the Vercel URL.
+
 
 ## Security notes
 

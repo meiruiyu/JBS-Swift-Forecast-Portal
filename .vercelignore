@@ -1,0 +1,12 @@
+# Keep Vercel from treating the Flask app as a Serverless Function.
+app.py
+requirements.txt
+Procfile
+runtime.txt
+render.yaml
+.venv
+users.db
+*.db
+__pycache__
+.idea
+JBS_Swift_Recursive_Margin_Only_Dashboard
