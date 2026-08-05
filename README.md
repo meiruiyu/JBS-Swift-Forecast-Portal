@@ -16,7 +16,15 @@ No sales forecast file is included or mixed into the dashboard.
 
 The dashboard provides date/channel filters, total margin, average margin, peak margin, a daily channel chart, channel comparison cards, all ten CSV fields in the result table, filtered CSV download, and chart export. The Channel dropdown is generated dynamically from the CSV's unique `channel` values; it is not hardcoded.
 
-The chart uses one shared Forecast Margin Y-axis for Stores, E-commerce, and Vans so the vertical positions remain directly comparable. Its desktop plotting area is expanded vertically to make nearby series easier to distinguish. Because Vans margins are much smaller than Stores margins, its purple line appears close to zero on this shared scale. The result table keeps the original visual style but groups long technical metadata into a readable Forecast Details cell instead of crowding nine narrow columns.
+## Architecture
+
+- **Frontend (Vercel):** static HTML/CSS/JS in `frontend/`
+- **Backend (Render):** Flask API in `app.py`
+- Browser calls same-origin `/api/*` on Vercel; `frontend/vercel.json` rewrites those requests to the Render service so Flask session cookies keep working.
+
+```text
+Browser → Vercel (pages + /api proxy) → Render (Flask + SQLite + Gmail SMTP)
+```
 
 ## Preserved features
 
@@ -29,7 +37,7 @@ The chart uses one shared Forecast Margin Y-axis for Stores, E-commerce, and Van
 - Forgot-password and email reset-code flow
 - Existing `users.db` and migration-safe reset columns
 
-## Run
+## Run locally
 
 ```bash
 python3 -m venv .venv
@@ -39,4 +47,29 @@ cp .env.example .env
 python3 app.py
 ```
 
-Open `http://127.0.0.1:5000`.
+Open `http://127.0.0.1:5000` (or `5001` if macOS occupies 5000).
+
+## Deploy
+
+### 1. Backend on Render
+
+1. Connect the GitHub repo in Render and use `render.yaml`, or create a Python Web Service with:
+   - Build: `pip install -r requirements.txt`
+   - Start: `gunicorn app:app --bind 0.0.0.0:$PORT`
+2. Set env vars from `.env.example`, especially `MAIL_*`, `SECRET_KEY`, and `SESSION_COOKIE_SECURE=true`.
+3. Confirm health: `https://<your-service>.onrender.com/api/health`
+
+Free Render instances sleep when idle and SQLite is ephemeral unless you attach a paid disk and set `DATABASE_PATH`.
+
+### 2. Frontend on Vercel
+
+1. Import the same GitHub repo in Vercel.
+2. Set **Root Directory** to `frontend`.
+3. Update `frontend/vercel.json` so the `/api` rewrite destination matches your Render URL.
+4. Deploy and open the Vercel URL.
+
+## Security notes
+
+- Do not commit `.env` or real mail passwords.
+- Use a long random `SECRET_KEY` in production.
+- Keep `SESSION_COOKIE_SECURE=true` on HTTPS deployments.

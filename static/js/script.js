@@ -2,6 +2,13 @@
 // Shared authentication helper
 // =========================================================
 
+const _nativeFetch = window.fetch.bind(window);
+window.fetch = (input, init = {}) =>
+    _nativeFetch(input, {
+        ...init,
+        credentials: init.credentials || "include"
+    });
+
 async function readJsonResponse(response) {
     let data = {};
 

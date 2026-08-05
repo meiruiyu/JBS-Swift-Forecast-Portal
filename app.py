@@ -50,8 +50,13 @@ app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 
 # Keep False while running locally with http://127.0.0.1
-# Change to True after deploying with HTTPS.
-app.config["SESSION_COOKIE_SECURE"] = False
+# Set SESSION_COOKIE_SECURE=true after deploying with HTTPS.
+app.config["SESSION_COOKIE_SECURE"] = (
+    os.getenv("SESSION_COOKIE_SECURE", "false")
+    .strip()
+    .lower()
+    == "true"
+)
 
 
 # =========================================================
@@ -123,10 +128,12 @@ FORECAST_FILE = (
         / "june_2026_recursive_margin_forecast.csv"
 )
 
-DATABASE_FILE = (
-        BASE_DIR
-        / "users.db"
-)
+DATABASE_FILE = Path(
+    os.getenv(
+        "DATABASE_PATH",
+        str(BASE_DIR / "users.db")
+    )
+).expanduser().resolve()
 
 ALLOWED_EMAIL_DOMAIN = os.getenv(
     "ALLOWED_EMAIL_DOMAIN",
@@ -151,6 +158,8 @@ def get_database_connection():
     """
     Open a connection to the local SQLite database.
     """
+
+    DATABASE_FILE.parent.mkdir(parents=True, exist_ok=True)
 
     connection = sqlite3.connect(
         DATABASE_FILE

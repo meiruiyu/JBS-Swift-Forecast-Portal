@@ -3,7 +3,7 @@ let marginChart = null;
 let currentRows = [];
 
 async function requestJson(url, options = {}) {
-  const response = await fetch(url, options);
+  const response = await fetch(url, { credentials: "include", ...options });
   if (response.status === 401) { window.location.href = "/login"; throw new Error("Please sign in again."); }
   const payload = await response.json();
   if (!response.ok) throw new Error(payload.error || "Unable to load forecast data.");
@@ -12,7 +12,7 @@ async function requestJson(url, options = {}) {
 
 async function logout(event) {
   event.preventDefault();
-  await fetch("/api/logout", { method: "POST" });
+  await fetch("/api/logout", { method: "POST", credentials: "include" });
   window.location.href = "/login";
 }
 

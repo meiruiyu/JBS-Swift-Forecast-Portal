@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Register | JBS Swift Forecast Portal</title>
+
+    <link
+            rel="stylesheet"
+            href="/css/style.css"
+    >
+
+</head>
+
+<body class="auth-page">
+
+<main class="auth-container">
+
+    <section class="auth-card">
+
+        <div class="auth-brand">
+
+            <h1>JBS Swift</h1>
+
+            <p>Forecast Portal</p>
+
+        </div>
+
+        <div class="auth-heading">
+
+            <h2>Create Account</h2>
+
+            <p>
+                Register with your Columbia University email address.
+            </p>
+
+        </div>
+
+        <form
+                class="auth-form"
+                id="register-form"
+                action="/verify"
+        >
+
+            <div class="form-group">
+
+                <label for="first-name">
+                    First Name
+                </label>
+
+                <input
+                        type="text"
+                        id="first-name"
+                        name="firstName"
+                        placeholder="Enter your first name"
+                        autocomplete="given-name"
+                >
+
+                <p
+                        class="error-message"
+                        id="first-name-error"
+                ></p>
+
+            </div>
+
+            <div class="form-group">
+
+                <label for="last-name">
+                    Last Name
+                </label>
+
+                <input
+                        type="text"
+                        id="last-name"
+                        name="lastName"
+                        placeholder="Enter your last name"
+                        autocomplete="family-name"
+                >
+
+                <p
+                        class="error-message"
+                        id="last-name-error"
+                ></p>
+
+            </div>
+
+            <div class="form-group">
+
+                <label for="register-email">
+                    Columbia Email
+                </label>
+
+                <input
+                        type="email"
+                        id="register-email"
+                        name="email"
+                        placeholder="abc1234@columbia.edu"
+                        autocomplete="email"
+                        pattern="^[A-Za-z0-9._%+\-]+@[Cc][Oo][Ll][Uu][Mm][Bb][Ii][Aa]\.[Ee][Dd][Uu]$"
+                        title="Please enter a Columbia email address ending in @columbia.edu."
+                >
+
+                <p class="form-help">
+                    This email will also be used as your account username.
+                </p>
+
+                <p
+                        class="error-message"
+                        id="email-error"
+                ></p>
+
+            </div>
+
+            <div class="form-group">
+
+                <label for="register-password">
+                    Password
+                </label>
+
+                <input
+                        type="password"
+                        id="register-password"
+                        name="password"
+                        placeholder="Create a password"
+                        minlength="8"
+                        autocomplete="new-password"
+                >
+
+                <p class="form-help">
+                    Password must contain at least 8 characters.
+                </p>
+
+                <p
+                        class="error-message"
+                        id="password-error"
+                ></p>
+
+            </div>
+
+            <div class="form-group">
+
+                <label for="confirm-password">
+                    Confirm Password
+                </label>
+
+                <input
+                        type="password"
+                        id="confirm-password"
+                        name="confirmPassword"
+                        placeholder="Enter your password again"
+                        minlength="8"
+                        autocomplete="new-password"
+                >
+
+                <p
+                        class="error-message"
+                        id="confirm-password-error"
+                ></p>
+
+            </div>
+
+            <label class="terms-option">
+
+                <input
+                        type="checkbox"
+                        id="terms"
+                        name="terms"
+                >
+
+                <span>
+                        I agree to the Terms of Use and Privacy Policy.
+                    </span>
+
+            </label>
+
+            <p
+                    class="error-message"
+                    id="terms-error"
+            ></p>
+
+            <button
+                    type="submit"
+                    class="auth-button"
+            >
+                Create Account
+            </button>
+
+        </form>
+
+        <p class="auth-switch">
+
+            Already have an account?
+
+            <a href="/login">
+                Sign in
+            </a>
+
+        </p>
+
+    </section>
+
+</main>
+
+<script
+        src="/js/script.js"
+></script>
+
+</body>
+
+</html>

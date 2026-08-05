@@ -1,0 +1,9 @@
+{
+  "cleanUrls": true,
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "https://jbs-swift-forecast-portal.onrender.com/api/$1"
+    }
+  ]
+}

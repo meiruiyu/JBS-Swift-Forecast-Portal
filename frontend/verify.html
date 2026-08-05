@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Email Verification | JBS Swift Forecast Portal</title>
+
+    <link
+            rel="stylesheet"
+            href="/css/style.css"
+    >
+
+</head>
+
+<body class="auth-page">
+
+<main class="auth-container">
+
+    <section class="auth-card">
+
+        <div class="auth-brand">
+
+            <h1>JBS Swift</h1>
+
+            <p>Forecast Portal</p>
+
+        </div>
+
+        <div class="auth-heading">
+
+            <h2>Verify Your Email</h2>
+
+            <p>
+                We sent a 6-digit verification code to your Columbia email address.
+            </p>
+
+        </div>
+
+        <form
+                class="auth-form"
+                id="verify-form"
+                action="/login"
+        >
+
+            <div class="form-group">
+
+                <label for="verification-code">
+                    Verification Code
+                </label>
+
+                <input
+                        type="text"
+                        id="verification-code"
+                        name="verificationCode"
+                        placeholder="Enter 6-digit code"
+                        inputmode="numeric"
+                        maxlength="6"
+                        title="Please enter a 6-digit verification code."
+                        autocomplete="one-time-code"
+                        required
+                >
+
+                <p
+                        class="error-message"
+                        id="verification-code-error"
+                ></p>
+
+                <p class="form-help">
+                    The verification code will expire after 10 minutes.
+                </p>
+
+            </div>
+
+            <button
+                    type="submit"
+                    class="auth-button"
+            >
+                Verify Email
+            </button>
+
+        </form>
+
+        <div class="verify-actions">
+
+            <p>
+                Didn’t receive the code?
+            </p>
+
+            <a href="#">
+                Resend code
+            </a>
+
+        </div>
+
+        <p class="auth-switch">
+
+            Entered the wrong email?
+
+            <a href="/register">
+                Return to registration
+            </a>
+
+        </p>
+
+    </section>
+
+</main>
+
+<script
+        src="/js/script.js"
+></script>
+
+</body>
+
+</html>
