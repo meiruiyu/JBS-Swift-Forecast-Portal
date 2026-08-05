@@ -30,7 +30,7 @@ Browser → Vercel (pages + /api proxy) → Render (Flask + SQLite + Gmail SMTP)
 
 - Original CSS, colors, layout language, and responsive behavior
 - Columbia email registration restriction
-- Gmail SMTP delivery through Flask-Mail
+- Gmail SMTP delivery for verification and password reset codes
 - Six-digit hashed verification codes with 10-minute expiration
 - Resend verification code
 - Login, logout, session protection, and API 401 handling

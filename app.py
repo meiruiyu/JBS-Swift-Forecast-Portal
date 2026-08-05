@@ -1,8 +1,11 @@
 import os
 import secrets
+import smtplib
 import sqlite3
+import ssl
 
 from datetime import datetime, timedelta
+from email.message import EmailMessage
 from functools import wraps
 from pathlib import Path
 
@@ -19,8 +22,6 @@ from flask import (
     session,
     url_for
 )
-
-from flask_mail import Mail, Message
 
 from werkzeug.security import (
     check_password_hash,
@@ -101,22 +102,21 @@ app.config["MAIL_PASSWORD"] = (
 app.config["MAIL_DEFAULT_SENDER"] = (
     os.getenv("MAIL_DEFAULT_SENDER", "")
     .strip()
+    or app.config["MAIL_USERNAME"]
 )
-
-mail = Mail(app)
 
 print("Gmail SMTP configuration:")
 print(
-    "MAIL_USERNAME:",
-    app.config["MAIL_USERNAME"]
+    "MAIL_USERNAME set:",
+    bool(app.config["MAIL_USERNAME"])
 )
 print(
     "MAIL_PASSWORD length:",
     len(app.config["MAIL_PASSWORD"])
 )
 print(
-    "MAIL_DEFAULT_SENDER:",
-    app.config["MAIL_DEFAULT_SENDER"]
+    "MAIL_DEFAULT_SENDER set:",
+    bool(app.config["MAIL_DEFAULT_SENDER"])
 )
 
 
@@ -312,6 +312,73 @@ def resolve_pending_email(data, session_key):
     return session.get(session_key)
 
 
+def send_smtp_email(
+        recipient_email,
+        subject,
+        body
+):
+    """
+    Send email through SMTP with an explicit timeout.
+    """
+
+    username = app.config["MAIL_USERNAME"]
+    password = app.config["MAIL_PASSWORD"]
+    sender = (
+        app.config["MAIL_DEFAULT_SENDER"]
+        or username
+    )
+
+    if not username:
+        raise RuntimeError(
+            "MAIL_USERNAME is missing."
+        )
+
+    if not password:
+        raise RuntimeError(
+            "MAIL_PASSWORD is missing."
+        )
+
+    message = EmailMessage()
+    message["Subject"] = subject
+    message["From"] = sender
+    message["To"] = recipient_email
+    message.set_content(body)
+
+    context = ssl.create_default_context()
+    server = app.config["MAIL_SERVER"]
+    port = app.config["MAIL_PORT"]
+    use_tls = app.config["MAIL_USE_TLS"]
+    use_ssl = (
+        os.getenv("MAIL_USE_SSL", "false")
+        .strip()
+        .lower()
+        == "true"
+    )
+
+    if use_ssl or port == 465:
+        with smtplib.SMTP_SSL(
+            server,
+            port,
+            timeout=30,
+            context=context
+        ) as smtp:
+            smtp.login(username, password)
+            smtp.send_message(message)
+        return
+
+    with smtplib.SMTP(
+        server,
+        port,
+        timeout=30
+    ) as smtp:
+        smtp.ehlo()
+        if use_tls:
+            smtp.starttls(context=context)
+            smtp.ehlo()
+        smtp.login(username, password)
+        smtp.send_message(message)
+
+
 def send_verification_email(
         recipient_email,
         verification_code
@@ -320,36 +387,19 @@ def send_verification_email(
     Send a verification code using Gmail SMTP.
     """
 
-    if not app.config["MAIL_USERNAME"]:
-        raise RuntimeError(
-            "MAIL_USERNAME is missing from .env."
+    send_smtp_email(
+        recipient_email,
+        "JBS Swift Forecast Portal verification code",
+        (
+            "Welcome to the JBS Swift Forecast Portal.\n\n"
+            "Your verification code is:\n\n"
+            f"{verification_code}\n\n"
+            "This code expires in 10 minutes.\n\n"
+            "If you did not request this code, "
+            "you can ignore this email."
         )
-
-    if not app.config["MAIL_PASSWORD"]:
-        raise RuntimeError(
-            "MAIL_PASSWORD is missing from .env."
-        )
-
-    message = Message(
-        subject=(
-            "JBS Swift Forecast Portal "
-            "verification code"
-        ),
-        recipients=[
-            recipient_email
-        ]
     )
 
-    message.body = (
-        "Welcome to the JBS Swift Forecast Portal.\n\n"
-        "Your verification code is:\n\n"
-        f"{verification_code}\n\n"
-        "This code expires in 10 minutes.\n\n"
-        "If you did not request this code, "
-        "you can ignore this email."
-    )
-
-    mail.send(message)
 
 def send_password_reset_email(
         recipient_email,
@@ -359,37 +409,19 @@ def send_password_reset_email(
     Send a password reset code using Gmail SMTP.
     """
 
-    if not app.config["MAIL_USERNAME"]:
-        raise RuntimeError(
-            "MAIL_USERNAME is missing from .env."
+    send_smtp_email(
+        recipient_email,
+        "JBS Swift Forecast Portal password reset code",
+        (
+            "A password reset was requested for your "
+            "JBS Swift Forecast Portal account.\n\n"
+            "Your password reset code is:\n\n"
+            f"{reset_code}\n\n"
+            "This code expires in 10 minutes.\n\n"
+            "If you did not request a password reset, "
+            "you can ignore this email."
         )
-
-    if not app.config["MAIL_PASSWORD"]:
-        raise RuntimeError(
-            "MAIL_PASSWORD is missing from .env."
-        )
-
-    message = Message(
-        subject=(
-            "JBS Swift Forecast Portal "
-            "password reset code"
-        ),
-        recipients=[
-            recipient_email
-        ]
     )
-
-    message.body = (
-        "A password reset was requested for your "
-        "JBS Swift Forecast Portal account.\n\n"
-        "Your password reset code is:\n\n"
-        f"{reset_code}\n\n"
-        "This code expires in 10 minutes.\n\n"
-        "If you did not request a password reset, "
-        "you can ignore this email."
-    )
-
-    mail.send(message)
 
 def page_login_required(route_function):
     """
@@ -1056,35 +1088,48 @@ def api_register():
     # Send the verification email
     # -----------------------------------------------------
 
+    email_sent = True
+    mail_error = None
+
     try:
         send_verification_email(
             email,
             verification_code
         )
 
-    except Exception:
+    except Exception as error:
+        email_sent = False
+        mail_error = (
+            f"{type(error).__name__}: {error}"
+        )
         app.logger.exception(
             "Unable to send verification email."
         )
 
-        return jsonify({
-            "error": (
-                "The account was saved, but the "
-                "verification email could not be sent. "
-                "Please check the Gmail App Password "
-                "and email settings."
-            ),
-            "requiresVerification": True,
-            "email": email
-        }), 502
-
-    return jsonify({
+    payload = {
+        "email": email,
+        "emailSent": email_sent,
+        "requiresVerification": True,
         "message": (
             "A verification code was sent "
             "to your email."
-        ),
-        "email": email
-    }), 200
+            if email_sent
+            else (
+                "The account was saved, but the "
+                "verification email could not be "
+                "delivered. Use the on-screen code."
+            )
+        )
+    }
+
+    # If SMTP fails on Render, still let the user verify.
+    if not email_sent:
+        payload["verificationCode"] = (
+            verification_code
+        )
+        payload["mailError"] = mail_error
+
+    return jsonify(payload), 200
 
 
 @app.route(
@@ -1344,32 +1389,44 @@ def api_resend_code():
             )
         }), 500
 
+    email_sent = True
+    mail_error = None
+
     try:
         send_verification_email(
             email,
             verification_code
         )
 
-    except Exception:
+    except Exception as error:
+        email_sent = False
+        mail_error = (
+            f"{type(error).__name__}: {error}"
+        )
         app.logger.exception(
             "Unable to resend verification email."
         )
 
-        return jsonify({
-            "error": (
-                "The new code was created, but "
-                "the email could not be sent. "
-                "Please check the Gmail "
-                "configuration."
-            )
-        }), 502
-
-    return jsonify({
+    payload = {
+        "email": email,
+        "emailSent": email_sent,
         "message": (
-            "A new verification code "
-            "was sent."
+            "A new verification code was sent."
+            if email_sent
+            else (
+                "Email delivery failed. "
+                "Use the on-screen code below."
+            )
         )
-    }), 200
+    }
+
+    if not email_sent:
+        payload["verificationCode"] = (
+            verification_code
+        )
+        payload["mailError"] = mail_error
+
+    return jsonify(payload), 200
 
 @app.route(
     "/api/forgot-password",
@@ -1480,32 +1537,43 @@ def api_forgot_password():
         "pending_password_reset_email"
     ] = email
 
+    email_sent = True
+    mail_error = None
+
     try:
         send_password_reset_email(
             email,
             reset_code
         )
 
-    except Exception:
+    except Exception as error:
+        email_sent = False
+        mail_error = (
+            f"{type(error).__name__}: {error}"
+        )
         app.logger.exception(
             "Unable to send password reset email."
         )
 
-        return jsonify({
-            "error": (
-                "The reset code was created, but "
-                "the email could not be sent. "
-                "Please check the Gmail settings."
-            )
-        }), 502
-
-    return jsonify({
+    payload = {
+        "email": email,
+        "emailSent": email_sent,
         "message": (
             "A password reset code was sent "
             "to your email."
-        ),
-        "email": email
-    }), 200
+            if email_sent
+            else (
+                "Email delivery failed. "
+                "Use the on-screen reset code."
+            )
+        )
+    }
+
+    if not email_sent:
+        payload["resetCode"] = reset_code
+        payload["mailError"] = mail_error
+
+    return jsonify(payload), 200
 
 @app.route(
     "/api/reset-password",
@@ -2214,18 +2282,14 @@ def margin_dashboard():
 @api_login_required
 def test_email():
     try:
-        message = Message(
-            subject="JBS SMTP Test",
-            recipients=[
-                app.config["MAIL_USERNAME"]
-            ],
-            body=(
+        send_smtp_email(
+            app.config["MAIL_USERNAME"],
+            "JBS SMTP Test",
+            (
                 "This is a Gmail SMTP test "
                 "from the JBS Forecast Portal."
             )
         )
-
-        mail.send(message)
 
         return jsonify({
             "status": "ok",
@@ -2239,7 +2303,10 @@ def test_email():
 
         return jsonify({
             "status": "error",
-            "error": "Unable to send the test email. Check the mail configuration."
+            "error": (
+                "Unable to send the test email. "
+                f"{type(error).__name__}: {error}"
+            )
         }), 500
 if __name__ == "__main__":
     app.run(

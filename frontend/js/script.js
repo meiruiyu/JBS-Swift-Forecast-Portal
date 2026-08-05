@@ -6,6 +6,9 @@ const PENDING_VERIFICATION_EMAIL_KEY =
     "pendingVerificationEmail";
 const PENDING_PASSWORD_RESET_EMAIL_KEY =
     "pendingPasswordResetEmail";
+const DISPLAYED_VERIFICATION_CODE_KEY =
+    "displayedVerificationCode";
+const MAIL_ERROR_KEY = "mailError";
 
 const _nativeFetch = window.fetch.bind(window);
 window.fetch = (input, init = {}) =>
@@ -273,26 +276,34 @@ if (registerForm) {
                     data.email || email
                 );
 
+                if (data.verificationCode) {
+                    storePendingEmail(
+                        DISPLAYED_VERIFICATION_CODE_KEY,
+                        data.verificationCode
+                    );
+                } else {
+                    clearPendingEmail(
+                        DISPLAYED_VERIFICATION_CODE_KEY
+                    );
+                }
+
+                if (data.mailError) {
+                    storePendingEmail(
+                        MAIL_ERROR_KEY,
+                        data.mailError
+                    );
+                } else {
+                    clearPendingEmail(MAIL_ERROR_KEY);
+                }
+
                 window.location.href = "/verify";
 
             } catch (error) {
                 console.error(error);
 
-                if (error.data?.email) {
-                    storePendingEmail(
-                        PENDING_VERIFICATION_EMAIL_KEY,
-                        error.data.email
-                    );
-                }
-
                 emailError.textContent =
                     error.message ||
                     "Unable to create the account.";
-
-                if (error.data?.requiresVerification) {
-                    window.location.href = "/verify";
-                    return;
-                }
 
             } finally {
                 submitButton.disabled = false;
@@ -310,6 +321,41 @@ if (registerForm) {
 
 const verifyForm =
     document.getElementById("verify-form");
+
+const verificationDeliveryNotice =
+    document.getElementById(
+        "verification-delivery-notice"
+    );
+
+if (verificationDeliveryNotice) {
+    const pendingEmail = readPendingEmail(
+        PENDING_VERIFICATION_EMAIL_KEY
+    );
+    const displayedCode = readPendingEmail(
+        DISPLAYED_VERIFICATION_CODE_KEY
+    );
+    const mailError = readPendingEmail(
+        MAIL_ERROR_KEY
+    );
+
+    if (displayedCode) {
+        verificationDeliveryNotice.textContent =
+            mailError
+                ? `Email delivery failed (${mailError}). Your verification code is ${displayedCode}.`
+                : `Your verification code is ${displayedCode}.`;
+
+        const codeInput = document.getElementById(
+            "verification-code"
+        );
+
+        if (codeInput && !codeInput.value) {
+            codeInput.value = displayedCode;
+        }
+    } else if (pendingEmail) {
+        verificationDeliveryNotice.textContent =
+            `We sent a 6-digit code to ${pendingEmail}. Check inbox and spam.`;
+    }
+}
 
 if (verifyForm) {
     verifyForm.addEventListener(
@@ -456,9 +502,42 @@ if (resendCodeButton) {
                 const data =
                     await readJsonResponse(response);
 
-                verificationCodeError.textContent =
-                    data.message ||
-                    "A new verification code was sent.";
+                if (data.verificationCode) {
+                    storePendingEmail(
+                        DISPLAYED_VERIFICATION_CODE_KEY,
+                        data.verificationCode
+                    );
+
+                    if (data.mailError) {
+                        storePendingEmail(
+                            MAIL_ERROR_KEY,
+                            data.mailError
+                        );
+                    }
+
+                    const codeInput =
+                        document.getElementById(
+                            "verification-code"
+                        );
+
+                    if (codeInput) {
+                        codeInput.value =
+                            data.verificationCode;
+                    }
+
+                    verificationCodeError.textContent =
+                        data.mailError
+                            ? `Email delivery failed. Use code ${data.verificationCode}.`
+                            : `Your verification code is ${data.verificationCode}.`;
+                } else {
+                    clearPendingEmail(
+                        DISPLAYED_VERIFICATION_CODE_KEY
+                    );
+                    clearPendingEmail(MAIL_ERROR_KEY);
+                    verificationCodeError.textContent =
+                        data.message ||
+                        "A new verification code was sent. Check inbox and spam.";
+                }
 
             } catch (error) {
                 console.error(error);
